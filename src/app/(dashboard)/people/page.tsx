@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PersonCard } from "@/components/users/PersonCard";
 import { useGetUsers } from "@/hooks/queries";
 import { PageHeader, FilterBar, CardGrid, LoadingGrid, EmptyUsers } from "@/components/common";
+import { QueryError } from "@/components/errors";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type TabValue = "all" | "top-earners" | "active";
@@ -23,7 +24,7 @@ export default function PeoplePage() {
         ? { sortBy: "lastLogin" as const, sortOrder: "desc" as const }
         : undefined;
 
-  const { data, isLoading, error } = useGetUsers(filters, undefined, sortParams);
+  const { data, isLoading, error, refetch } = useGetUsers(filters, undefined, sortParams);
 
   const users = data?.data || [];
 
@@ -49,9 +50,7 @@ export default function PeoplePage() {
         </div>
 
         {error && (
-          <div className="rounded-lg border border-accent-200 bg-accent-50 p-4 text-accent-700">
-            Failed to load people. Please try again.
-          </div>
+          <QueryError title="Failed to load people" error={error} onRetry={() => refetch()} />
         )}
 
         <TabsContent value="all" className="mt-6">

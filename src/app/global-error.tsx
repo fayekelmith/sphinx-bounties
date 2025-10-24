@@ -1,6 +1,6 @@
 "use client";
 
-import { ErrorCard } from "@/components/errors";
+import { ErrorFallback } from "@/components/errors";
 
 export default function GlobalError({
   error,
@@ -12,14 +12,12 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <div className="container mx-auto py-10">
-          <ErrorCard
-            title="Critical Error"
-            message={error.message || "A critical error occurred. Please refresh the page."}
-            code={error.digest}
-            onRetry={reset}
-          />
-        </div>
+        <ErrorFallback
+          title="Critical Error"
+          message="A critical error occurred. Please refresh the page."
+          error={error}
+          onReset={reset}
+        />
       </body>
     </html>
   );

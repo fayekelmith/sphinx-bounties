@@ -5,6 +5,7 @@ import Link from "next/link";
 import { WorkspaceCard } from "@/components/workspaces/WorkspaceCard";
 import { useGetWorkspaces } from "@/hooks/queries";
 import { PageHeader, FilterBar, CardGrid, LoadingGrid, EmptyWorkspaces } from "@/components/common";
+import { QueryError } from "@/components/errors";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -15,7 +16,7 @@ export default function WorkspacesPage() {
     search: search || undefined,
   };
 
-  const { data, isLoading, error } = useGetWorkspaces(filters);
+  const { data, isLoading, error, refetch } = useGetWorkspaces(filters);
 
   const workspaces = data?.data || [];
 
@@ -37,9 +38,7 @@ export default function WorkspacesPage() {
       />
 
       {error && (
-        <div className="rounded-lg border border-accent-200 bg-accent-50 p-4 text-accent-700">
-          Failed to load workspaces. Please try again.
-        </div>
+        <QueryError title="Failed to load workspaces" error={error} onRetry={() => refetch()} />
       )}
 
       {isLoading && <LoadingGrid count={6} columns={3} />}

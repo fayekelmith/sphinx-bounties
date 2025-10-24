@@ -2,12 +2,14 @@
 
 import type { ReactNode } from "react";
 import { Component } from "react";
-import { ErrorCard } from "./error-card";
+import { ErrorFallback } from "./error-fallback";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  title?: string;
+  message?: string;
 }
 
 interface ErrorBoundaryState {
@@ -41,13 +43,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       return (
-        <div className="container mx-auto py-10">
-          <ErrorCard
-            title="Something went wrong"
-            message={this.state.error?.message || "An unexpected error occurred"}
-            onRetry={this.handleReset}
-          />
-        </div>
+        <ErrorFallback
+          title={this.props.title}
+          message={this.props.message}
+          error={this.state.error || undefined}
+          onReset={this.handleReset}
+        />
       );
     }
 

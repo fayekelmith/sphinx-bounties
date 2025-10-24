@@ -18,6 +18,7 @@ import type { BountyStatus } from "@prisma/client";
 import type { BountyListItem } from "@/types";
 import Link from "next/link";
 import { EmptyBounties, EmptySearch } from "@/components/common";
+import { QueryError } from "@/components/errors";
 
 export default function BountiesPage() {
   const [search, setSearch] = useState("");
@@ -28,7 +29,7 @@ export default function BountiesPage() {
     search: search || undefined,
   };
 
-  const { data, isLoading, error } = useGetBounties(filters);
+  const { data, isLoading, error, refetch } = useGetBounties(filters);
 
   return (
     <div className="space-y-6">
@@ -74,9 +75,7 @@ export default function BountiesPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-accent-200 bg-accent-50 p-4 text-accent-700">
-          Failed to load bounties. Please try again.
-        </div>
+        <QueryError title="Failed to load bounties" error={error} onRetry={() => refetch()} />
       )}
 
       {isLoading && (
