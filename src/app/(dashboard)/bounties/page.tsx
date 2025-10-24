@@ -14,8 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, Plus } from "lucide-react";
-import type { BountyStatus } from "@prisma/client";
-import type { BountyListItem } from "@/types";
+import type { BountyStatus, BountyListItem } from "@/types";
 import Link from "next/link";
 import { EmptyBounties, EmptySearch } from "@/components/common";
 import { QueryError } from "@/components/errors";

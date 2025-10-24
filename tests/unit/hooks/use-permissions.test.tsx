@@ -28,6 +28,8 @@ const mockUser = {
   alias: null,
   description: null,
   avatarUrl: null,
+  contactKey: null,
+  routeHint: null,
   githubUsername: null,
   twitterUsername: null,
   createdAt: new Date().toISOString(),

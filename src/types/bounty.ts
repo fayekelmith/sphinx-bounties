@@ -1,6 +1,8 @@
 import type { BountyStatus, ProgrammingLanguage } from "@prisma/client";
 import type { ApiResponse, PaginationMeta } from "./api";
 
+export type { BountyStatus, ProgrammingLanguage };
+
 export interface BountiesResponse {
   success: true;
   data: BountyListItem[];
