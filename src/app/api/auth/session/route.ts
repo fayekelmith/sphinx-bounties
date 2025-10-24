@@ -70,13 +70,10 @@ export async function GET() {
     const session = await getSessionFromCookies();
 
     if (!session) {
-      return apiError(
-        {
-          code: ErrorCode.UNAUTHORIZED,
-          message: "Not authenticated",
-        },
-        401
-      );
+      return apiSuccess({
+        authenticated: false,
+        user: null,
+      });
     }
 
     const user = await db.user.findUnique({

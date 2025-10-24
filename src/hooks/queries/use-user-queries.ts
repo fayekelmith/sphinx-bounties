@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { userQueries, type UserFilters, type UserSortParams } from "@/services/user/queries";
 import type { PaginationParams } from "@/types";
 import {
   createUserAction,
@@ -11,6 +10,19 @@ import {
   verifyTwitterAction,
 } from "@/actions";
 import { showSuccess, showError } from "@/lib/toast";
+
+export type UserFilters = {
+  search?: string;
+  role?: string;
+  isVerified?: boolean;
+  hasGithub?: boolean;
+  hasTwitter?: boolean;
+};
+
+export type UserSortParams = {
+  sortBy?: "createdAt" | "lastLogin" | "username";
+  sortOrder?: "asc" | "desc";
+};
 
 export const userKeys = {
   all: ["users"] as const,
@@ -25,6 +37,42 @@ export const userKeys = {
   twitterVerified: () => [...userKeys.all, "twitter-verified"] as const,
 };
 
+async function fetchUsers(
+  filters?: UserFilters,
+  pagination?: PaginationParams,
+  sort?: UserSortParams
+) {
+  const params = new URLSearchParams();
+
+  if (filters?.search) params.append("search", filters.search);
+  if (filters?.role) params.append("role", filters.role);
+  if (filters?.isVerified !== undefined) params.append("isVerified", filters.isVerified.toString());
+  if (filters?.hasGithub !== undefined) params.append("hasGithub", filters.hasGithub.toString());
+  if (filters?.hasTwitter !== undefined) params.append("hasTwitter", filters.hasTwitter.toString());
+  if (pagination?.page) params.append("page", pagination.page.toString());
+  if (pagination?.pageSize) params.append("pageSize", pagination.pageSize.toString());
+  if (sort?.sortBy) params.append("sortBy", sort.sortBy);
+  if (sort?.sortOrder) params.append("sortOrder", sort.sortOrder);
+
+  const response = await fetch(`/api/users?${params}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch users");
+
+  return response.json();
+}
+
+async function fetchUser(pubkey: string) {
+  const response = await fetch(`/api/users/${pubkey}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch user");
+
+  return response.json();
+}
+
 export function useGetUsers(
   filters?: UserFilters,
   pagination?: PaginationParams,
@@ -32,14 +80,14 @@ export function useGetUsers(
 ) {
   return useQuery({
     queryKey: userKeys.list(filters, pagination, sort),
-    queryFn: () => userQueries.getAll(filters, pagination, sort),
+    queryFn: () => fetchUsers(filters, pagination, sort),
   });
 }
 
 export function useGetUser(pubkey: string, enabled = true) {
   return useQuery({
     queryKey: userKeys.detail(pubkey),
-    queryFn: () => userQueries.getByPubkey(pubkey),
+    queryFn: () => fetchUser(pubkey),
     enabled: enabled && !!pubkey,
   });
 }
@@ -47,47 +95,22 @@ export function useGetUser(pubkey: string, enabled = true) {
 export function useGetUserByUsername(username: string, enabled = true) {
   return useQuery({
     queryKey: userKeys.detailByUsername(username),
-    queryFn: () => userQueries.getByUsername(username),
+    queryFn: () => fetchUsers({ search: username }),
     enabled: enabled && !!username,
   });
 }
 
-export function useGetUserProfile(pubkey: string, enabled = true) {
-  return useQuery({
-    queryKey: userKeys.profile(pubkey),
-    queryFn: () => userQueries.getProfileByPubkey(pubkey),
-    enabled: enabled && !!pubkey,
-  });
-}
-
-export function useSearchUsers(query: string, pagination?: PaginationParams) {
-  return useQuery({
-    queryKey: [...userKeys.lists(), "search", query, pagination],
-    queryFn: () => userQueries.search(query, pagination),
-    enabled: !!query && query.length >= 2,
-  });
-}
-
-export function useGetGithubVerifiedUsers(pagination?: PaginationParams) {
+export function useGetGithubVerifiedUsers() {
   return useQuery({
     queryKey: userKeys.githubVerified(),
-    queryFn: () => userQueries.getGithubVerified(pagination),
+    queryFn: () => fetchUsers({ hasGithub: true }),
   });
 }
 
-export function useGetTwitterVerifiedUsers(pagination?: PaginationParams) {
+export function useGetTwitterVerifiedUsers() {
   return useQuery({
     queryKey: userKeys.twitterVerified(),
-    queryFn: () => userQueries.getTwitterVerified(pagination),
-  });
-}
-
-export function useCheckUsernameAvailability(username: string, excludePubkey?: string) {
-  return useQuery({
-    queryKey: [...userKeys.all, "username-available", username, excludePubkey],
-    queryFn: () => userQueries.isUsernameAvailable(username, excludePubkey),
-    enabled: !!username && username.length >= 3,
-    staleTime: 1000 * 30, // 30 seconds
+    queryFn: () => fetchUsers({ hasTwitter: true }),
   });
 }
 
@@ -101,9 +124,6 @@ export function useCreateUser() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-
-      queryClient.invalidateQueries({ queryKey: [...userKeys.all, "username-available"] });
-
       showSuccess("User created successfully");
     },
     onError: (error: Error) => {
@@ -116,20 +136,15 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ pubkey, formData }: { pubkey: string; formData: FormData }) => {
-      const result = await updateProfileAction(pubkey, formData);
+    mutationFn: async (formData: FormData) => {
+      const result = await updateProfileAction(formData);
       return result.data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: userKeys.detail(variables.pubkey) });
-      queryClient.invalidateQueries({ queryKey: userKeys.profile(variables.pubkey) });
-
-      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-
-      if (data?.username) {
-        queryClient.invalidateQueries({ queryKey: userKeys.detailByUsername(data.username) });
+    onSuccess: (data) => {
+      if (data?.pubkey) {
+        queryClient.invalidateQueries({ queryKey: userKeys.detail(data.pubkey) });
+        queryClient.invalidateQueries({ queryKey: userKeys.profile(data.pubkey) });
       }
-
       showSuccess("Profile updated successfully");
     },
     onError: (error: Error) => {
@@ -142,17 +157,14 @@ export function useUpdateSocialLinks() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ pubkey, formData }: { pubkey: string; formData: FormData }) => {
-      const result = await updateSocialLinksAction(pubkey, formData);
+    mutationFn: async (formData: FormData) => {
+      const result = await updateSocialLinksAction(formData);
       return result.data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: userKeys.detail(variables.pubkey) });
-      queryClient.invalidateQueries({ queryKey: userKeys.profile(variables.pubkey) });
-
-      queryClient.invalidateQueries({ queryKey: userKeys.githubVerified() });
-      queryClient.invalidateQueries({ queryKey: userKeys.twitterVerified() });
-
+    onSuccess: (data) => {
+      if (data?.pubkey) {
+        queryClient.invalidateQueries({ queryKey: userKeys.detail(data.pubkey) });
+      }
       showSuccess("Social links updated successfully");
     },
     onError: (error: Error) => {
@@ -165,14 +177,14 @@ export function useUpdateNotificationSettings() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (pubkey: string) => {
-      const result = await updateNotificationSettingsAction(pubkey);
+    mutationFn: async (formData: FormData) => {
+      const result = await updateNotificationSettingsAction(formData);
       return result.data;
     },
-    onSuccess: (data, pubkey) => {
-      queryClient.invalidateQueries({ queryKey: userKeys.detail(pubkey) });
-      queryClient.invalidateQueries({ queryKey: userKeys.profile(pubkey) });
-
+    onSuccess: (data) => {
+      if (data?.pubkey) {
+        queryClient.invalidateQueries({ queryKey: userKeys.detail(data.pubkey) });
+      }
       showSuccess("Notification settings updated successfully");
     },
     onError: (error: Error) => {
@@ -185,25 +197,17 @@ export function useDeleteUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ pubkey, formData }: { pubkey: string; formData: FormData }) => {
-      const result = await deleteUserAction(pubkey, formData);
+    mutationFn: async (pubkey: string) => {
+      const result = await deleteUserAction(pubkey);
       return result.data;
     },
-    onSuccess: (_, variables) => {
-      const pubkey = variables.pubkey;
-
-      queryClient.removeQueries({ queryKey: userKeys.detail(pubkey) });
-      queryClient.removeQueries({ queryKey: userKeys.profile(pubkey) });
-
+    onSuccess: (data, pubkey) => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-
-      queryClient.invalidateQueries({ queryKey: userKeys.githubVerified() });
-      queryClient.invalidateQueries({ queryKey: userKeys.twitterVerified() });
-
-      showSuccess("User account deleted successfully");
+      queryClient.removeQueries({ queryKey: userKeys.detail(pubkey) });
+      showSuccess("User deleted successfully");
     },
     onError: (error: Error) => {
-      showError(error.message || "Failed to delete user account");
+      showError(error.message || "Failed to delete user");
     },
   });
 }
@@ -212,18 +216,14 @@ export function useVerifyGithub() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ pubkey, code }: { pubkey: string; code: string }) => {
-      const formData = new FormData();
-      formData.append("code", code);
-      const result = await verifyGithubAction(pubkey, formData);
+    mutationFn: async (code: string) => {
+      const result = await verifyGithubAction(code);
       return result.data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: userKeys.detail(variables.pubkey) });
-      queryClient.invalidateQueries({ queryKey: userKeys.profile(variables.pubkey) });
-
-      queryClient.invalidateQueries({ queryKey: userKeys.githubVerified() });
-
+    onSuccess: (data) => {
+      if (data?.pubkey) {
+        queryClient.invalidateQueries({ queryKey: userKeys.detail(data.pubkey) });
+      }
       showSuccess("GitHub account verified successfully");
     },
     onError: (error: Error) => {
@@ -236,17 +236,14 @@ export function useVerifyTwitter() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ pubkey, code }: { pubkey: string; code: string }) => {
-      const formData = new FormData();
-      formData.append("code", code);
-      const result = await verifyTwitterAction(pubkey, formData);
+    mutationFn: async (code: string) => {
+      const result = await verifyTwitterAction(code);
       return result.data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: userKeys.detail(variables.pubkey) });
-      queryClient.invalidateQueries({ queryKey: userKeys.profile(variables.pubkey) });
-      queryClient.invalidateQueries({ queryKey: userKeys.twitterVerified() });
-
+    onSuccess: (data) => {
+      if (data?.pubkey) {
+        queryClient.invalidateQueries({ queryKey: userKeys.detail(data.pubkey) });
+      }
       showSuccess("Twitter account verified successfully");
     },
     onError: (error: Error) => {

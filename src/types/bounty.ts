@@ -1,7 +1,5 @@
-import type { BountyStatus, ProgrammingLanguage } from "@prisma/client";
 import type { ApiResponse, PaginationMeta } from "./api";
-
-export type { BountyStatus, ProgrammingLanguage };
+import type { BountyStatus, ProgrammingLanguage } from "./enums";
 
 export interface BountiesResponse {
   success: true;

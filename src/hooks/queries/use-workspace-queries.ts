@@ -1,10 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  workspaceQueries,
-  type WorkspaceFilters,
-  type WorkspaceSortParams,
-} from "@/services/workspace/queries";
-import type { PaginationParams } from "@/types";
+import type { PaginationParams, WorkspaceRole } from "@/types";
 import {
   createWorkspaceAction,
   updateWorkspaceAction,
@@ -14,6 +9,18 @@ import {
   removeMemberAction,
 } from "@/actions";
 import { showSuccess, showError } from "@/lib/toast";
+
+export type WorkspaceFilters = {
+  search?: string;
+  ownerPubkey?: string;
+  memberPubkey?: string;
+  isPublic?: boolean;
+};
+
+export type WorkspaceSortParams = {
+  sortBy?: "createdAt" | "updatedAt" | "name";
+  sortOrder?: "asc" | "desc";
+};
 
 export const workspaceKeys = {
   all: ["workspaces"] as const,
@@ -30,6 +37,61 @@ export const workspaceKeys = {
     [...workspaceKeys.all, "role", workspaceId, userPubkey] as const,
 };
 
+async function fetchWorkspaces(
+  filters?: WorkspaceFilters,
+  pagination?: PaginationParams,
+  sort?: WorkspaceSortParams
+) {
+  const params = new URLSearchParams();
+
+  if (filters?.search) params.append("search", filters.search);
+  if (filters?.ownerPubkey) params.append("ownerPubkey", filters.ownerPubkey);
+  if (filters?.memberPubkey) params.append("memberPubkey", filters.memberPubkey);
+  if (filters?.isPublic !== undefined) params.append("isPublic", filters.isPublic.toString());
+  if (pagination?.page) params.append("page", pagination.page.toString());
+  if (pagination?.pageSize) params.append("pageSize", pagination.pageSize.toString());
+  if (sort?.sortBy) params.append("sortBy", sort.sortBy);
+  if (sort?.sortOrder) params.append("sortOrder", sort.sortOrder);
+
+  const response = await fetch(`/api/workspaces?${params}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch workspaces");
+
+  return response.json();
+}
+
+async function fetchWorkspace(id: string) {
+  const response = await fetch(`/api/workspaces/${id}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch workspace");
+
+  return response.json();
+}
+
+async function fetchWorkspaceMembers(workspaceId: string) {
+  const response = await fetch(`/api/workspaces/${workspaceId}/members`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch members");
+
+  return response.json();
+}
+
+async function fetchWorkspaceBudget(workspaceId: string) {
+  const response = await fetch(`/api/workspaces/${workspaceId}/budget`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch budget");
+
+  return response.json();
+}
+
 export function useGetWorkspaces(
   filters?: WorkspaceFilters,
   pagination?: PaginationParams,
@@ -37,38 +99,30 @@ export function useGetWorkspaces(
 ) {
   return useQuery({
     queryKey: workspaceKeys.list(filters, pagination, sort),
-    queryFn: () => workspaceQueries.getAll(filters, pagination, sort),
+    queryFn: () => fetchWorkspaces(filters, pagination, sort),
   });
 }
 
 export function useGetWorkspace(id: string, enabled = true) {
   return useQuery({
     queryKey: workspaceKeys.detail(id),
-    queryFn: () => workspaceQueries.getById(id),
+    queryFn: () => fetchWorkspace(id),
     enabled: enabled && !!id,
   });
 }
 
-export function useGetWorkspacesByOwner(
-  ownerPubkey: string,
-  pagination?: PaginationParams,
-  sort?: WorkspaceSortParams
-) {
+export function useGetWorkspacesByOwner(ownerPubkey: string) {
   return useQuery({
     queryKey: workspaceKeys.owner(ownerPubkey),
-    queryFn: () => workspaceQueries.getByOwnerPubkey(ownerPubkey, pagination, sort),
+    queryFn: () => fetchWorkspaces({ ownerPubkey }),
     enabled: !!ownerPubkey,
   });
 }
 
-export function useGetWorkspacesByMember(
-  memberPubkey: string,
-  pagination?: PaginationParams,
-  sort?: WorkspaceSortParams
-) {
+export function useGetWorkspacesByMember(memberPubkey: string) {
   return useQuery({
     queryKey: workspaceKeys.member(memberPubkey),
-    queryFn: () => workspaceQueries.getByMemberPubkey(memberPubkey, pagination, sort),
+    queryFn: () => fetchWorkspaces({ memberPubkey }),
     enabled: !!memberPubkey,
   });
 }
@@ -76,23 +130,15 @@ export function useGetWorkspacesByMember(
 export function useGetWorkspaceMembers(workspaceId: string) {
   return useQuery({
     queryKey: workspaceKeys.members(workspaceId),
-    queryFn: () => workspaceQueries.getMembersByWorkspaceId(workspaceId),
+    queryFn: () => fetchWorkspaceMembers(workspaceId),
     enabled: !!workspaceId,
-  });
-}
-
-export function useGetUserRole(workspaceId: string, userPubkey: string) {
-  return useQuery({
-    queryKey: workspaceKeys.userRole(workspaceId, userPubkey),
-    queryFn: () => workspaceQueries.getUserRole(workspaceId, userPubkey),
-    enabled: !!workspaceId && !!userPubkey,
   });
 }
 
 export function useGetWorkspaceBudget(workspaceId: string) {
   return useQuery({
     queryKey: workspaceKeys.budget(workspaceId),
-    queryFn: () => workspaceQueries.getBudget(workspaceId),
+    queryFn: () => fetchWorkspaceBudget(workspaceId),
     enabled: !!workspaceId,
   });
 }
@@ -105,13 +151,8 @@ export function useCreateWorkspace() {
       const result = await createWorkspaceAction(formData);
       return result.data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
-
-      if (data?.ownerPubkey) {
-        queryClient.invalidateQueries({ queryKey: workspaceKeys.owner(data.ownerPubkey) });
-      }
-
       showSuccess("Workspace created successfully");
     },
     onError: (error: Error) => {
@@ -130,13 +171,7 @@ export function useUpdateWorkspace() {
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(variables.id) });
-
       queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
-
-      if (data?.ownerPubkey) {
-        queryClient.invalidateQueries({ queryKey: workspaceKeys.owner(data.ownerPubkey) });
-      }
-
       showSuccess("Workspace updated successfully");
     },
     onError: (error: Error) => {
@@ -149,18 +184,13 @@ export function useDeleteWorkspace() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (workspaceId: string) => {
-      const result = await deleteWorkspaceAction(workspaceId);
+    mutationFn: async (id: string) => {
+      const result = await deleteWorkspaceAction(id);
       return result.data;
     },
-    onSuccess: (_, workspaceId) => {
-      queryClient.removeQueries({ queryKey: workspaceKeys.detail(workspaceId) });
-
+    onSuccess: (data, id) => {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
-
-      queryClient.invalidateQueries({ queryKey: [...workspaceKeys.all, "owner"] });
-      queryClient.invalidateQueries({ queryKey: [...workspaceKeys.all, "member"] });
-
+      queryClient.removeQueries({ queryKey: workspaceKeys.detail(id) });
       showSuccess("Workspace deleted successfully");
     },
     onError: (error: Error) => {
@@ -178,14 +208,8 @@ export function useAddMember() {
       return result.data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(variables.workspaceId) });
       queryClient.invalidateQueries({ queryKey: workspaceKeys.members(variables.workspaceId) });
-
-      const userPubkey = variables.formData.get("userPubkey") as string;
-      if (userPubkey) {
-        queryClient.invalidateQueries({ queryKey: workspaceKeys.member(userPubkey) });
-      }
-
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(variables.workspaceId) });
       showSuccess("Member added successfully");
     },
     onError: (error: Error) => {
@@ -200,20 +224,21 @@ export function useUpdateMemberRole() {
   return useMutation({
     mutationFn: async ({
       workspaceId,
-      memberId,
-      formData,
+      userPubkey,
+      role,
     }: {
       workspaceId: string;
-      memberId: string;
-      formData: FormData;
+      userPubkey: string;
+      role: WorkspaceRole;
     }) => {
-      const result = await updateMemberRoleAction(workspaceId, memberId, formData);
+      const result = await updateMemberRoleAction(workspaceId, userPubkey, role);
       return result.data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(variables.workspaceId) });
       queryClient.invalidateQueries({ queryKey: workspaceKeys.members(variables.workspaceId) });
-
+      queryClient.invalidateQueries({
+        queryKey: workspaceKeys.userRole(variables.workspaceId, variables.userPubkey),
+      });
       showSuccess("Member role updated successfully");
     },
     onError: (error: Error) => {
@@ -228,23 +253,17 @@ export function useRemoveMember() {
   return useMutation({
     mutationFn: async ({
       workspaceId,
-      memberId,
+      userPubkey,
     }: {
       workspaceId: string;
-      memberId: string;
-      userPubkey?: string;
+      userPubkey: string;
     }) => {
-      const result = await removeMemberAction(workspaceId, memberId);
+      const result = await removeMemberAction(workspaceId, userPubkey);
       return result.data;
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(variables.workspaceId) });
       queryClient.invalidateQueries({ queryKey: workspaceKeys.members(variables.workspaceId) });
-
-      if (variables.userPubkey) {
-        queryClient.invalidateQueries({ queryKey: workspaceKeys.member(variables.userPubkey) });
-      }
-
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(variables.workspaceId) });
       showSuccess("Member removed successfully");
     },
     onError: (error: Error) => {

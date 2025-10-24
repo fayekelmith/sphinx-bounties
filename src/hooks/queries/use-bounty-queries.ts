@@ -1,10 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  bountyQueries,
-  type BountyFilters,
-  type BountySortParams,
-} from "@/services/bounty/queries";
-import type { PaginationParams } from "@/types";
+import type { PaginationParams, BountyStatus } from "@/types";
 import {
   createBountyAction,
   updateBountyAction,
@@ -13,6 +8,21 @@ import {
   reviewProofAction,
 } from "@/actions";
 import { showSuccess, showError } from "@/lib/toast";
+
+export type BountyFilters = {
+  status?: BountyStatus;
+  workspaceId?: string;
+  assigneePubkey?: string;
+  creatorPubkey?: string;
+  search?: string;
+  tags?: string[];
+  programmingLanguages?: string[];
+};
+
+export type BountySortParams = {
+  sortBy?: "createdAt" | "updatedAt" | "amount" | "deadline";
+  sortOrder?: "asc" | "desc";
+};
 
 export const bountyKeys = {
   all: ["bounties"] as const,
@@ -28,6 +38,62 @@ export const bountyKeys = {
   creator: (creatorPubkey: string) => [...bountyKeys.all, "creator", creatorPubkey] as const,
 };
 
+async function fetchBounties(
+  filters?: BountyFilters,
+  pagination?: PaginationParams,
+  sort?: BountySortParams
+) {
+  const params = new URLSearchParams();
+
+  if (filters?.status) params.append("status", filters.status);
+  if (filters?.workspaceId) params.append("workspaceId", filters.workspaceId);
+  if (filters?.assigneePubkey) params.append("assigneePubkey", filters.assigneePubkey);
+  if (filters?.creatorPubkey) params.append("creatorPubkey", filters.creatorPubkey);
+  if (filters?.search) params.append("search", filters.search);
+  if (pagination?.page) params.append("page", pagination.page.toString());
+  if (pagination?.pageSize) params.append("pageSize", pagination.pageSize.toString());
+  if (sort?.sortBy) params.append("sortBy", sort.sortBy);
+  if (sort?.sortOrder) params.append("sortOrder", sort.sortOrder);
+
+  const response = await fetch(`/api/bounties?${params}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch bounties");
+
+  return response.json();
+}
+
+async function fetchBounty(id: string) {
+  const response = await fetch(`/api/bounties/${id}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch bounty");
+
+  return response.json();
+}
+
+async function fetchBountyProofs(bountyId: string) {
+  const response = await fetch(`/api/bounties/${bountyId}/proofs`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch proofs");
+
+  return response.json();
+}
+
+async function fetchProof(proofId: string) {
+  const response = await fetch(`/api/bounties/proofs/${proofId}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch proof");
+
+  return response.json();
+}
+
 export function useGetBounties(
   filters?: BountyFilters,
   pagination?: PaginationParams,
@@ -35,14 +101,14 @@ export function useGetBounties(
 ) {
   return useQuery({
     queryKey: bountyKeys.list(filters, pagination, sort),
-    queryFn: () => bountyQueries.getAll(filters, pagination, sort),
+    queryFn: () => fetchBounties(filters, pagination, sort),
   });
 }
 
 export function useGetBounty(id: string, enabled = true) {
   return useQuery({
     queryKey: bountyKeys.detail(id),
-    queryFn: () => bountyQueries.getById(id),
+    queryFn: () => fetchBounty(id),
     enabled: enabled && !!id,
   });
 }
@@ -54,7 +120,7 @@ export function useGetBountiesByWorkspace(
 ) {
   return useQuery({
     queryKey: bountyKeys.workspace(workspaceId),
-    queryFn: () => bountyQueries.getByWorkspaceId(workspaceId, pagination, sort),
+    queryFn: () => fetchBounties({ workspaceId }, pagination, sort),
     enabled: !!workspaceId,
   });
 }
@@ -66,7 +132,7 @@ export function useGetBountiesByAssignee(
 ) {
   return useQuery({
     queryKey: bountyKeys.assignee(assigneePubkey),
-    queryFn: () => bountyQueries.getByAssigneePubkey(assigneePubkey, pagination, sort),
+    queryFn: () => fetchBounties({ assigneePubkey }, pagination, sort),
     enabled: !!assigneePubkey,
   });
 }
@@ -78,7 +144,7 @@ export function useGetBountiesByCreator(
 ) {
   return useQuery({
     queryKey: bountyKeys.creator(creatorPubkey),
-    queryFn: () => bountyQueries.getByCreatorPubkey(creatorPubkey, pagination, sort),
+    queryFn: () => fetchBounties({ creatorPubkey }, pagination, sort),
     enabled: !!creatorPubkey,
   });
 }
@@ -86,7 +152,7 @@ export function useGetBountiesByCreator(
 export function useGetBountyProofs(bountyId: string) {
   return useQuery({
     queryKey: bountyKeys.proofs(bountyId),
-    queryFn: () => bountyQueries.getProofsByBountyId(bountyId),
+    queryFn: () => fetchBountyProofs(bountyId),
     enabled: !!bountyId,
   });
 }
@@ -94,7 +160,7 @@ export function useGetBountyProofs(bountyId: string) {
 export function useGetProof(proofId: string, enabled = true) {
   return useQuery({
     queryKey: bountyKeys.proof(proofId),
-    queryFn: () => bountyQueries.getProofById(proofId),
+    queryFn: () => fetchProof(proofId),
     enabled: enabled && !!proofId,
   });
 }
