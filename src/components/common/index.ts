@@ -5,6 +5,8 @@ export { EmptyMembers } from "./empty-members";
 export { EmptyUsers } from "./empty-users";
 export { EmptySearch } from "./empty-search";
 export { EmptyLeaderboard } from "./empty-leaderboard";
+export { EmptyActivity } from "./empty-activity";
+export { EmptyBudget } from "./empty-budget";
 
 export { PageHeader } from "./page-header";
 export { StatCard } from "./stat-card";

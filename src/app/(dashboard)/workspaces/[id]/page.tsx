@@ -3,7 +3,13 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { WorkspaceHeader, WorkspaceStats, WorkspaceMembersList } from "@/components/workspaces";
-import { SectionHeader, EmptyBounties, EmptyMembers } from "@/components/common";
+import {
+  SectionHeader,
+  EmptyBounties,
+  EmptyMembers,
+  EmptyBudget,
+  EmptyActivity,
+} from "@/components/common";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useGetWorkspace, useUpdateMemberRole, useRemoveMember } from "@/hooks/queries";
@@ -94,16 +100,12 @@ export default function WorkspaceDetailPage({ params }: { params: Promise<{ id: 
 
         <TabsContent value="budget" className="space-y-4 mt-6">
           <SectionHeader title="Budget Management" />
-          <div className="border rounded-lg p-8 text-center text-muted-foreground">
-            <p>Budget details and transactions will be displayed here</p>
-          </div>
+          <EmptyBudget />
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4 mt-6">
           <SectionHeader title="Recent Activity" />
-          <div className="border rounded-lg p-8 text-center text-muted-foreground">
-            <p>Activity feed will be displayed here</p>
-          </div>
+          <EmptyActivity />
         </TabsContent>
       </Tabs>
     </div>

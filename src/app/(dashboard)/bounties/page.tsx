@@ -17,6 +17,7 @@ import { Search, Plus } from "lucide-react";
 import type { BountyStatus } from "@prisma/client";
 import type { BountyListItem } from "@/types";
 import Link from "next/link";
+import { EmptyBounties, EmptySearch } from "@/components/common";
 
 export default function BountiesPage() {
   const [search, setSearch] = useState("");
@@ -95,9 +96,19 @@ export default function BountiesPage() {
           </div>
 
           {data.data.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-neutral-500">No bounties found. Try adjusting your filters.</p>
-            </div>
+            <>
+              {search || statusFilter !== "ALL" ? (
+                <EmptySearch
+                  searchTerm={search || `status: ${statusFilter}`}
+                  onClearSearch={() => {
+                    setSearch("");
+                    setStatusFilter("ALL");
+                  }}
+                />
+              ) : (
+                <EmptyBounties />
+              )}
+            </>
           )}
 
           {data.pagination && data.pagination.totalPages > 1 && (
