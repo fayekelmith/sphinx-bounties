@@ -80,14 +80,14 @@ export const verifyTwitterSchema = z.object({
 });
 
 export const updateNotificationSettingsSchema = z.object({
-  emailNotifications: z.boolean(),
-  pushNotifications: z.boolean(),
-  notifyOnBountyAssigned: z.boolean(),
-  notifyOnBountyCompleted: z.boolean(),
-  notifyOnPaymentReceived: z.boolean(),
-  notifyOnProofReviewed: z.boolean(),
-  notifyOnWorkspaceInvite: z.boolean(),
-  notifyOnMemberAdded: z.boolean(),
+  emailNotifications: z.boolean().optional().default(true),
+  pushNotifications: z.boolean().optional().default(true),
+  notifyOnBountyAssigned: z.boolean().optional().default(true),
+  notifyOnBountyCompleted: z.boolean().optional().default(true),
+  notifyOnPaymentReceived: z.boolean().optional().default(true),
+  notifyOnProofReviewed: z.boolean().optional().default(true),
+  notifyOnWorkspaceInvite: z.boolean().optional().default(true),
+  notifyOnMemberAdded: z.boolean().optional().default(false),
 });
 
 export const deleteAccountSchema = z.object({
