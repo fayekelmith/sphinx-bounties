@@ -4,6 +4,7 @@ export { EmptyWorkspaces } from "./empty-workspaces";
 export { EmptyMembers } from "./empty-members";
 export { EmptyUsers } from "./empty-users";
 export { EmptySearch } from "./empty-search";
+export { EmptyLeaderboard } from "./empty-leaderboard";
 
 export { PageHeader } from "./page-header";
 export { StatCard } from "./stat-card";
