@@ -2,10 +2,7 @@
 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  updateNotificationSettingsSchema,
-  type UpdateNotificationSettingsInput,
-} from "@/validations/user.schema";
+import { updateNotificationSettingsSchema } from "@/validations/user.schema";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,7 +21,7 @@ export default function NotificationSettingsPage() {
     control,
     handleSubmit,
     formState: { isDirty },
-  } = useForm<UpdateNotificationSettingsInput>({
+  } = useForm({
     resolver: zodResolver(updateNotificationSettingsSchema),
     defaultValues: {
       emailNotifications: true,
@@ -38,7 +35,7 @@ export default function NotificationSettingsPage() {
     },
   });
 
-  const onSubmit = async (_data: UpdateNotificationSettingsInput) => {
+  const onSubmit = async (_data: unknown) => {
     if (!user?.pubkey) return;
 
     setIsSaving(true);
