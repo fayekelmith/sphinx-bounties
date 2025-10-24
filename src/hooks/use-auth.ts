@@ -8,6 +8,11 @@ interface User {
   username: string;
   alias: string | null;
   avatarUrl: string | null;
+  description: string | null;
+  contactKey: string | null;
+  routeHint: string | null;
+  githubUsername: string | null;
+  twitterUsername: string | null;
 }
 
 interface SessionResponse {
